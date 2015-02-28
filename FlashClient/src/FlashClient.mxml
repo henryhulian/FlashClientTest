@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Application xmlns:fx="http://ns.adobe.com/mxml/2009" 
+			   xmlns:s="library://ns.adobe.com/flex/spark" 
+			   xmlns:mx="library://ns.adobe.com/flex/mx" minWidth="955" minHeight="600" initialize="init()">
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import mx.controls.Alert;
+			import mx.utils.ObjectUtil;
+			
+			public var socket:Socket;
+			public var isReadHead:Boolean=false;
+			public var messageLen:int=0;
+			
+			public function init():void{
+				
+			}
+			
+			//向服务端发送数据  
+			public function sendMessage(obj:Object):Boolean{  
+				trace("-----发送数据-----");  
+				if (socket.connected) {  
+					var objByte:ByteArray = new ByteArray();  
+					objByte.writeObject(obj);   
+					var msgByte:ByteArray = new ByteArray();  
+					msgByte.writeInt(objByte.length);//写入正文长度  
+					msgByte.writeBytes(objByte, 0, objByte.length);//写入正文   
+					socket.writeBytes(msgByte);//向socket发送数据  
+					socket.flush();  
+					return true;  
+				}else {  
+					return false;  
+				}  
+			}  
+			
+			//读取服务器数据  
+			private function readMessage( event:ProgressEvent ):void {  
+				trace("-----读取数据-----");  
+				//如果没读取过头部并且可读取  
+				if (!this.isReadHead && this.socket.bytesAvailable > 4) {  
+					//trace("-----读取头部-----");  
+					var lenByte:ByteArray = new ByteArray();  
+					this.socket.readBytes(lenByte, 0, 4);  
+					this.messageLen = lenByte.readInt();  
+					this.isReadHead = true;  
+				}  
+				
+				//如果已经读取过头部并且当前消息大于等于包长度  
+				if (this.isReadHead && this.socket.bytesAvailable >= this.messageLen) {  
+					//trace("-----读取正文-----");  
+					var msgByte:ByteArray = new ByteArray();  
+					this.socket.readBytes(msgByte, 0, this.messageLen);  
+					this.isReadHead = false;  
+					var msg:VideoGameDataPackage = msgByte.readObject();  
+					
+					//处理数据
+					this.socketData.text=ObjectUtil.toString(msg);
+					
+					//如果socket中仍然有数据可以<strong>处理</strong>  
+					if (this.socket.bytesAvailable > 4) {  
+						this.readMessage(event);  
+					}  
+				}  
+				
+			}  
+			
+			public function connect():void{
+				socket = new Socket();
+				socket.endian = Endian.BIG_ENDIAN;
+				socket.addEventListener(Event.CONNECT,function():void{
+					Alert.show("Connect success!");
+				});
+				socket.addEventListener(Event.CLOSE,function():void{
+					Alert.show("Connection closed!");
+				});
+				socket.addEventListener(IOErrorEvent.IO_ERROR,function():void{
+					Alert.show("Connect failed!");
+				})
+				socket.addEventListener(ProgressEvent.SOCKET_DATA,readMessage);
+				
+				socket.connect(this.host.text,Number(this.port.text));
+			}
+			
+			public function login():void{
+				var data:VideoGameDataPackage = new VideoGameDataPackage();
+				data.command='login';
+				data.parameters.token = this.tokenInput.text;
+				sendMessage(data);
+			}
+			
+			public function findBalance():void{
+				var data:VideoGameDataPackage = new VideoGameDataPackage();
+				data.command='findBalance';
+				sendMessage(data);
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<s:VGroup>
+	
+		<s:HGroup>
+			<s:Button label="connect" click="connect()"/>
+			<s:Label text="HOST:"/><s:TextInput  id="host" text="127.0.0.1"></s:TextInput>
+			<s:Label text="PORT:"/><s:TextInput  id="port" text="12727"></s:TextInput>
+		</s:HGroup>
+		
+		<s:TextArea id="socketData">
+			
+		</s:TextArea>
+		
+		<s:HGroup>
+			<s:Button label="login" click="login()"/><s:TextInput id="tokenInput" text="GlLiCeEymm8SCoHZqQHAjg=="></s:TextInput>
+		</s:HGroup>
+		
+		<s:Button label="findBalance" click="findBalance()"/>
+		
+	</s:VGroup>
+	
+</s:Application>
