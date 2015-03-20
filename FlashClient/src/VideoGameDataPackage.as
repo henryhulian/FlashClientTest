@@ -1,7 +1,7 @@
 package
 {
 
-	[RemoteClass(alias='com.springrest.restserver.protocol.VideoGameDataPackage')]
+	[RemoteClass(alias='com.gaming.ce.server.protocol.VideoGameDataPackage')]
 	
 	public class VideoGameDataPackage
 	{
